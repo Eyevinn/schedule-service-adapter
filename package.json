@@ -9,6 +9,10 @@
     "test": "echo \"WARN: no test specified\" && exit 0"
   },
   "author": "Eyevinn Technology AB <work@eyevinn.se>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Eyevinn/schedule-service-adapter.git"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^16.11.1",
