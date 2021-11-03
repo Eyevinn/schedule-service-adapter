@@ -106,7 +106,7 @@ export class Channel {
       let scheduleQuery = this.scheduleEndpoint.href 
         + "?start=" + dayjs(currentTs - WINDOW_SIZE * 1000).toISOString() 
         + "&end=" + dayjs(currentTs + WINDOW_SIZE * 1000).toISOString();
-      debug(`[{$this.id}]: Fetch schedules ${scheduleQuery}`);
+      debug(`[${this.id}]: Fetch schedules ${scheduleQuery}`);
 
       const response = await fetch(scheduleQuery);
       const data = await response.json();
