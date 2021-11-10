@@ -62,7 +62,7 @@ const retry = (fn: any, ms: number, maxRetries: number) => new Promise((resolve,
       if (maxRetries > 0) {
         setTimeout(() => {
           retry(fn, ms, maxRetries - 1).then(resolve).catch(reject);
-        })
+        }, ms)
       } else {
         reject(err);
       }
@@ -274,6 +274,7 @@ export class AssetManager {
     const channel: Channel = this.channelManager.getChannel(vodRequest.playlistId);
     debug("getNextVod()");
     return new Promise<INextVodResponse>((resolve, reject) => {
+      const delayMs = 2000;
       retry(() => new Promise((success, fail) => {
         channel.getSchedule()
         .then(currentVod => {
@@ -294,10 +295,10 @@ export class AssetManager {
             success({ id: currentVod.id, title: currentVod.title, uri: currentVod.url, offset: (offset && offset > 0) ? offset : 0, diffMs: scheduleDiffMs });
           }
         }).catch(err => {
-          debug(`Get schedule failed. Trying Again.\nvodRequest=${JSON.stringify(vodRequest, null, 2)}`);
+          debug(`Get schedule failed. Trying Again in (${delayMs})ms.\nvodRequest=${JSON.stringify(vodRequest, null, 2)}`);
           fail(err);
         })
-      }), 2000, 3)
+      }), delayMs, 3)
       .then((vodResponse: any) => {
         resolve(vodResponse);
       })
