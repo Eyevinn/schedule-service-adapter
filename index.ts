@@ -293,8 +293,11 @@ export class AssetManager {
             debug({ id: currentVod.id, title: currentVod.title, uri: currentVod.url, offset: (offset && offset > 0) ? offset : 0, diffMs: scheduleDiffMs });
             success({ id: currentVod.id, title: currentVod.title, uri: currentVod.url, offset: (offset && offset > 0) ? offset : 0, diffMs: scheduleDiffMs });
           }
+        }).catch(err => {
+          debug(`Get schedule failed. Trying Again.\nvodRequest=${JSON.stringify(vodRequest, null, 2)}`);
+          fail(err);
         })
-      }), 2000, 0)
+      }), 2000, 3)
       .then((vodResponse: any) => {
         resolve(vodResponse);
       })
