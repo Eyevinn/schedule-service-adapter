@@ -291,8 +291,22 @@ export class AssetManager {
 
             this.channelManager.log(vodRequest.playlistId, currentVod);
             const scheduleDiffMs = currentVod.start_time - now.valueOf();
-            debug({ id: currentVod.id, title: currentVod.title, uri: currentVod.url, offset: (offset && offset > 0) ? offset : 0, diffMs: scheduleDiffMs });
-            success({ id: currentVod.id, title: currentVod.title, uri: currentVod.url, offset: (offset && offset > 0) ? offset : 0, diffMs: scheduleDiffMs });
+            const timedMetadata = {
+              "id": currentVod.id,
+              "start-date": dayjs(currentVod.start_time).toISOString(),
+              "x-schedule-end": dayjs(currentVod.end_time).toISOString(),
+              "x-title": currentVod.title.replace(/"/g, "'"),
+              "x-channelid": vodRequest.playlistId,
+              "class": "se.eyevinn.schedule",
+            };
+            debug({ id: currentVod.id, title: currentVod.title, uri: currentVod.url, offset: (offset && offset > 0) ? offset : 0, diffMs: scheduleDiffMs, timedMetadata: timedMetadata });
+            success({ id: currentVod.id,
+              title: currentVod.title,
+              uri: currentVod.url,
+              offset: (offset && offset > 0) ? offset : 0,
+              diffMs: scheduleDiffMs,
+              timedMetadata: timedMetadata,
+            });
           }
         }).catch(err => {
           debug(`Get schedule failed. Trying Again in (${delayMs})ms.\nvodRequest=${JSON.stringify(vodRequest, null, 2)}`);
