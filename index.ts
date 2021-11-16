@@ -413,9 +413,12 @@ export class StreamSwitchManager {
   }
 
   async getSchedule(channelId) {
-    const channel = this.channelManager. getChannel(channelId);
+    const channel = this.channelManager.getChannel(channelId);
     const liveSchedule = await channel.getLiveSchedule();
-    debug(liveSchedule);
+    if (liveSchedule.length > 0) {
+      debug(`[${channelId}]: Next live event:`);
+      debug(liveSchedule[liveSchedule.length - 1]);
+    }
     return liveSchedule;
   }
 }
