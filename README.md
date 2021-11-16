@@ -14,12 +14,15 @@ Initiate the Eyevinn Channel Engine with the adapter for the Eyevinn Schedule Se
 
 ```
 const DemoChannelEngine = require("eyevinn-channel-engine");
-const { ChannelManager, AssetManager } = require("@eyevinn/schedule-service-adapter");
+const { ChannelManager, AssetManager, StreamSwitchManager } = require("@eyevinn/schedule-service-adapter");
 
 const channelManager = new ChannelManager({
   scheduleServiceEndpoint: new URL("https://schedule.vc.eyevinn.technology/api/v1")
 });
 const assetManager = new AssetManager({
+  channelManager: channelManager,
+});
+const streamSwitchManager = new StreamSwitchManager({
   channelManager: channelManager,
 });
 
@@ -28,6 +31,7 @@ const run = async () => {
 
   const engine = new DemoChannelEngine(assetManager, {
     channelManager: channelManager,
+    streamSwitchManager: streamSwitchManager,
   });
   engine.start();
   engine.listen(8000);
