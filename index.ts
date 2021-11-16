@@ -142,7 +142,7 @@ export class Channel {
       debug(`[${this.id}]: Fetch schedules ${scheduleQuery}`);
       const response = await fetch(scheduleQuery);
       const data = await response.json();
-      const schedule: ILive[] = data.filter((ev: IScheduleEventResponse) => ev.type === ScheduleEventType.LIVE).map((ev: ILiveScheduleEvent): ILive => {
+      const schedule: ILive[] = data.filter((ev: IScheduleEventResponse) => ev.type === ScheduleEventType.LIVE).map((ev: IScheduleEventResponse): ILive => {
         return {
           eventId: ev.id,
           assetId: ev.channelId,
@@ -151,7 +151,7 @@ export class Channel {
           start: ev.start,
           end_time: ev.end_time,
           end: ev.end,
-          uri: ev.url,
+          uri: ev.liveUrl,
           duration: ev.duration,
           type: 1,
         };
@@ -417,7 +417,8 @@ export class StreamSwitchManager {
     const liveSchedule = await channel.getLiveSchedule();
     if (liveSchedule.length > 0) {
       debug(`[${channelId}]: Next live event:`);
-      debug(liveSchedule[liveSchedule.length - 1]);
+      const nextLiveEvent = liveSchedule.find(ev => ev.start_time >= dayjs().valueOf());
+      debug(nextLiveEvent);
     }
     return liveSchedule;
   }
