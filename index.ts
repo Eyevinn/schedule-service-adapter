@@ -24,6 +24,11 @@ interface IChannelResponse {
   title: string;
 }
 
+enum ScheduleEventType {
+  VOD = "VOD",
+  LIVE = "LIVE"
+}
+
 interface IScheduleEventResponse {
   id: string;
   channelId: string;
@@ -34,11 +39,37 @@ interface IScheduleEventResponse {
   end: string;
   url: string;
   duration: number;
+  type: ScheduleEventType;
+  liveUrl?: string;
+}
+
+interface ILiveScheduleEvent{
+  id: string;
+  channelId: string;
+  start_time: number;
+  end_time: number;
+  start: string;
+  end: string;
+  duration: number;
+  url: string;
 }
 
 interface IVod extends IScheduleEventResponse {
   offset?: number;
   gap?: number;
+}
+
+interface ILive {
+  eventId: string;
+  assetId: string;
+  title: string;
+  type: number;
+  start_time: number;
+  start: string;
+  end_time: number;
+  end: string;
+  uri: string;
+  duration: number;
 }
 
 interface INextVodRequest {
@@ -72,10 +103,12 @@ const retry = (fn: any, ms: number, maxRetries: number) => new Promise((resolve,
 export class Channel {
   private attrs: IChannelAttrs;
   private channelManager: ChannelManager;
+  private liveSchedule: ILiveScheduleEvent[];
 
   constructor(attrs: IChannelAttrs, channelManager: ChannelManager) {
     this.attrs = attrs;
     this.channelManager = channelManager;
+    this.liveSchedule = [];
   }
 
   get id() {
@@ -97,6 +130,37 @@ export class Channel {
       { bw: 2588000, codecs: 'mp4a.40.2,avc1.42C01E', resolution: [1024, 576] },
       { bw: 3606000, codecs: 'mp4a.40.2,avc1.42C01E', resolution: [1280, 720] },
     ];
+  }
+
+  async getLiveSchedule(): Promise<ILive[]> {
+    try {
+      const WINDOW_SIZE = 3600; // seconds
+      const currentTs = dayjs().valueOf();
+      let scheduleQuery = this.scheduleEndpoint.href
+        + "?start=" + dayjs(currentTs - WINDOW_SIZE * 1000).toISOString() 
+        + "&end=" + dayjs(currentTs + WINDOW_SIZE * 1000).toISOString();
+      debug(`[${this.id}]: Fetch schedules ${scheduleQuery}`);
+      const response = await fetch(scheduleQuery);
+      const data = await response.json();
+      const schedule: ILive[] = data.filter((ev: IScheduleEventResponse) => ev.type === ScheduleEventType.LIVE).map((ev: IScheduleEventResponse): ILive => {
+        return {
+          eventId: ev.id,
+          assetId: ev.channelId,
+          title: "LIVE EVENT",
+          start_time: ev.start_time,
+          start: ev.start,
+          end_time: ev.end_time,
+          end: ev.end,
+          uri: ev.liveUrl,
+          duration: ev.duration,
+          type: 1,
+        };
+      });
+      return schedule;
+    } catch (err) {
+      console.error("Failed to get LIVE schedule: ", err.message);
+      throw err;    
+    }
   }
 
   async getSchedule(timestamp?: number): Promise<IVod> {
@@ -255,6 +319,13 @@ export class ChannelManager {
     this.asrunLog[channelId].push(scheduleEvent);
   }
 
+  removeLog(channelId: string, id: string) {
+    if (this.asrunLog[channelId]) {
+      const idx = this.asrunLog[channelId].findIndex(event => event.id === id);
+      this.asrunLog[channelId].splice(idx, 1);
+    }
+  }
+
   getAsRun(channelId: string, num: number): IVod[] {
     if (!this.asrunLog[channelId]) {
       this.asrunLog[channelId] = [];
@@ -322,5 +393,33 @@ export class AssetManager {
         reject("Failed to get next VOD from scheduler");
       });
     })
+  }
+
+  handleError(err, vodResponse) {
+    console.error(err.message);
+    if (vodResponse && vodResponse.id) {
+      debug(vodResponse);
+      debug(`Removing ${vodResponse.id} from asrun ${vodResponse.playlistId} as it failed to load`);
+      this.channelManager.removeLog(vodResponse.playlistId, vodResponse.id);
+    }
+  }
+}
+
+export class StreamSwitchManager {
+  private channelManager: ChannelManager;
+
+  constructor({ channelManager }) {
+    this.channelManager = channelManager;
+  }
+
+  async getSchedule(channelId) {
+    const channel = this.channelManager.getChannel(channelId);
+    const liveSchedule = await channel.getLiveSchedule();
+    if (liveSchedule.length > 0) {
+      debug(`[${channelId}]: Next live event:`);
+      const nextLiveEvent = liveSchedule.find(ev => ev.start_time >= dayjs().valueOf());
+      debug(nextLiveEvent);
+    }
+    return liveSchedule;
   }
 }
