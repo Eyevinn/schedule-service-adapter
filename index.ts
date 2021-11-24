@@ -103,12 +103,10 @@ const retry = (fn: any, ms: number, maxRetries: number) => new Promise((resolve,
 export class Channel {
   private attrs: IChannelAttrs;
   private channelManager: ChannelManager;
-  private liveSchedule: ILiveScheduleEvent[];
 
   constructor(attrs: IChannelAttrs, channelManager: ChannelManager) {
     this.attrs = attrs;
     this.channelManager = channelManager;
-    this.liveSchedule = [];
   }
 
   get id() {
@@ -141,22 +139,26 @@ export class Channel {
         + "&end=" + dayjs(currentTs + WINDOW_SIZE * 1000).toISOString();
       debug(`[${this.id}]: Fetch schedules ${scheduleQuery}`);
       const response = await fetch(scheduleQuery);
-      const data = await response.json();
-      const schedule: ILive[] = data.filter((ev: IScheduleEventResponse) => ev.type === ScheduleEventType.LIVE).map((ev: IScheduleEventResponse): ILive => {
-        return {
-          eventId: ev.id,
-          assetId: ev.channelId,
-          title: "LIVE EVENT",
-          start_time: ev.start_time,
-          start: ev.start,
-          end_time: ev.end_time,
-          end: ev.end,
-          uri: ev.liveUrl,
-          duration: ev.duration,
-          type: 1,
-        };
-      });
-      return schedule;
+      if (response.ok) {
+        const data = await response.json();
+        const schedule: ILive[] = data.filter((ev: IScheduleEventResponse) => ev.type === ScheduleEventType.LIVE).map((ev: IScheduleEventResponse): ILive => {
+          return {
+            eventId: ev.id,
+            assetId: ev.channelId,
+            title: "LIVE EVENT",
+            start_time: ev.start_time,
+            start: ev.start,
+            end_time: ev.end_time,
+            end: ev.end,
+            uri: ev.liveUrl,
+            duration: ev.duration,
+            type: 1,
+          };
+        });
+        return schedule;
+      } else {
+        throw new Error(`Schedule service responded with (${response.status}):"${response.statusText}"`);
+      }
     } catch (err) {
       console.error("Failed to get LIVE schedule: ", err.message);
       throw err;    
@@ -173,6 +175,9 @@ export class Channel {
       debug(`[${this.id}]: Fetch schedules ${scheduleQuery}`);
 
       const response = await fetch(scheduleQuery);
+      if (!response.ok) {
+        throw new Error(`Schedule service responded with (${response.status}):"${response.statusText}"`);
+      }
       const data = await response.json();
       debug(data);
       if (data.length > 0) {
@@ -414,12 +419,28 @@ export class StreamSwitchManager {
 
   async getSchedule(channelId) {
     const channel = this.channelManager.getChannel(channelId);
-    const liveSchedule = await channel.getLiveSchedule();
-    if (liveSchedule.length > 0) {
-      debug(`[${channelId}]: Next live event:`);
-      const nextLiveEvent = liveSchedule.find(ev => ev.start_time >= dayjs().valueOf());
-      debug(nextLiveEvent);
+    const delayMs = 2000;
+    try {
+      const liveSchedule = await retry(() => new Promise((success, fail) => {
+        channel.getLiveSchedule()
+        .then((schedule: ILive[]) => {
+          if (schedule.length > 0) {
+            debug(`[${channelId}]: Next live event:`);
+            const nextLiveEvent = schedule.find(ev => ev.start_time >= dayjs().valueOf());
+            debug(nextLiveEvent);
+          }
+          success(schedule);
+        })
+        .catch(exc => {
+          console.error(`Get schedule failed. Trying Again in (${delayMs})ms.`);
+          fail(exc);
+        });
+      }), delayMs, 3);
+      return liveSchedule;
+    } catch(err) {
+      debug(err);
+      console.error("Max retries reached");
+      throw err;
     }
-    return liveSchedule;
   }
 }
