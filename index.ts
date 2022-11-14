@@ -79,7 +79,7 @@ interface INextVodRequest {
 interface INextVodResponse {
   id: string;
   title: string;
-  uri?: string;
+  uri: string;
   offset?: number;
   diffMs?: number;
   desiredDuration?: number;
