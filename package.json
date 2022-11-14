@@ -3,6 +3,7 @@
   "version": "0.3.1",
   "description": "Channel Engine adapter for Eyevinn Schedule Service",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc --project ./",
     "postversion": "git push && git push --tags",
