@@ -16,12 +16,20 @@ interface IChannelAttrs {
   id: string;
   title?: string;
   scheduleEndpoint: URL;
+  audioTracks?: IAudioTracks[];
+}
+
+interface IAudioTracks {
+  language: string;
+  name: string;
+  default: boolean;
 }
 
 interface IChannelResponse {
   id: string;
   tenant: string;
   title: string;
+  audioTracks?: IAudioTracks[];
 }
 
 enum ScheduleEventType {
@@ -115,6 +123,10 @@ export class Channel {
 
   get title() {
     return this.attrs.title;
+  }
+
+  get audioTracks() {
+    return this.attrs.audioTracks;
   }
 
   get scheduleEndpoint() {
@@ -250,12 +262,14 @@ export class ChannelManager {
   private isConnected: boolean;
   private channelList: Record<string, Channel>;
   private asrunLog: Record<string, IVod[]>;
+  private useDemuxedAudio: boolean;
 
   constructor(options: IChannelManagerOptions) {
     this.endpoint = options.scheduleServiceEndpoint;
     this.isConnected = false;
     this.channelList = {};
     this.asrunLog = {};
+    this.useDemuxedAudio = false;
 
     this.timer = setInterval(async () => {
       try {
@@ -273,15 +287,24 @@ export class ChannelManager {
 
   async refreshChannelList() {
     const requestUrl = new URL(this.endpoint.href + "/channels");
-    debug(`Refresh channel list from: ${requestUrl.href}`);
+    debug(`Refresh channel list from: ${requestUrl.href} (useDemuxedAudio=${this.useDemuxedAudio})`);
     const response = await fetch(requestUrl.href);
     const channels: IChannelResponse[] = await response.json();
     channels.map(ch => {
       const channel = new Channel({
         id: ch.id,
+        audioTracks: ch.audioTracks,
         scheduleEndpoint: new URL(this.endpoint.href + "/channels/" + ch.id + "/schedule"),
       }, this);
-      this.addChannel(channel);
+      if (this.useDemuxedAudio) {
+        if (channel.audioTracks && channel.audioTracks.length > 0) {
+          // When demuxed audio is enabled the channel needs to have 
+          // an audio track configuration
+          this.addChannel(channel);
+        }
+      } else {
+        this.addChannel(channel);
+      }
     });
     Object.keys(this.channelList).map(channelId => {
       if (!channels.find(ch => ch.id === channelId)) {
@@ -336,6 +359,10 @@ export class ChannelManager {
       this.asrunLog[channelId] = [];
     }
     return this.asrunLog[channelId].slice(-num);
+  }
+
+  setUseDemuxedAudio(useDemuxedAudio: boolean) {
+    this.useDemuxedAudio = useDemuxedAudio;
   }
 }
 
