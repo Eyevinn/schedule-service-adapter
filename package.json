@@ -1,6 +1,6 @@
 {
   "name": "@eyevinn/schedule-service-adapter",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "description": "Channel Engine adapter for Eyevinn Schedule Service",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
