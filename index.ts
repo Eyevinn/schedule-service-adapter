@@ -303,7 +303,9 @@ export class ChannelManager {
           this.addChannel(channel);
         }
       } else {
-        this.addChannel(channel);
+        if (!channel.audioTracks) {
+          this.addChannel(channel);
+        }
       }
     });
     Object.keys(this.channelList).map(channelId => {
